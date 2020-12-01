@@ -1,22 +1,18 @@
 use std::fs;
 
-fn find_sum_of_two(numbers: Vec<i32>) -> (i32, i32) {
-    let mut numbers = numbers;
-
-    let n1 = numbers.remove(0);
-    for n2 in &numbers {
+fn find_sum_of_two(numbers: &[i32]) -> (i32, i32) {
+    let n1 = numbers[0];
+    for n2 in &numbers[1..] {
         if n1 + n2 == 2020 { return (n1, *n2) };
     }
 
-    find_sum_of_two(numbers)
+    find_sum_of_two(&numbers[1..])
 }
 
-fn find_sum_of_three(numbers: Vec<i32>) -> (i32, i32, i32) {
-    let mut numbers = numbers;
+fn find_sum_of_three(numbers: &[i32]) -> (i32, i32, i32) {
+    let n1 = numbers[0];
 
-    let n1 = numbers.remove(0);
-
-    for index_n2 in 0..(numbers.len() - 1) {
+    for index_n2 in 1..(numbers.len() - 1) {
         let n2 = numbers.get(index_n2).unwrap();
         
         for index_n3 in (index_n2 + 1)..numbers.len() {
@@ -28,7 +24,7 @@ fn find_sum_of_three(numbers: Vec<i32>) -> (i32, i32, i32) {
         }
     }
 
-    find_sum_of_three(numbers)
+    find_sum_of_three(&numbers[1..])
 }
 
 fn main() {
@@ -41,26 +37,26 @@ fn main() {
     }
 
     // Part 1
-    // let (n1, n2) = find_sum_of_two(numbers);
-    // println!("{} * {} = {}", n1, n2, n1 * n2);
+    let (n1, n2) = find_sum_of_two(numbers.as_slice());
+    println!("{} * {} = {}", n1, n2, n1 * n2);
 
     // Part 2
-    let (n1, n2, n3) = find_sum_of_three(numbers);
+    let (n1, n2, n3) = find_sum_of_three(numbers.as_slice());
     println!("{} * {} * {} = {}", n1, n2, n3, n1 * n2 * n3);
 }
 
 #[test]
 fn test_sum_two() {
-    let numbers = vec![1721, 979, 366, 299, 675, 1456];
-    let (n1, n2) = find_sum_of_two(numbers);
+    let numbers = [1721, 979, 366, 299, 675, 1456];
+    let (n1, n2) = find_sum_of_two(&numbers);
 
     assert_eq!(n1 * n2, 514579);
 }
 
 #[test]
 fn test_sum_three() {
-    let numbers = vec![1721, 979, 366, 299, 675, 1456];
-    let (n1, n2, n3) = find_sum_of_three(numbers);
+    let numbers = [1721, 979, 366, 299, 675, 1456];
+    let (n1, n2, n3) = find_sum_of_three(&numbers);
 
     assert_eq!(n1 * n2 * n3, 241861950);
 }
