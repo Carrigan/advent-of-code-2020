@@ -13,11 +13,11 @@ impl <'a> From<&'a str> for Password<'a> {
 
 impl <'a> Password<'a> {
     fn valid_for_count(&self, policy: &PasswordPolicy) -> bool {
-        let mut character_count = 0;
-        
-        for character in self.content.chars() {
-            if character == policy.character { character_count += 1 };
-        }
+        let character_count = self.content
+            .chars()
+            .into_iter()
+            .filter(|character| *character == policy.character)
+            .count();
 
         character_count >= policy.first && character_count <= policy.second
     }
@@ -58,6 +58,7 @@ impl TryFrom<&str> for PasswordPolicy {
     fn try_from(line: &str) -> Result<Self, Self::Error> {
         let hyphen_position = line.find('-')
             .ok_or(PasswordPolicyError::HyphenNotFound)?;
+
         let space_position = line.find(' ')
             .ok_or(PasswordPolicyError::SpaceNotFound)?;
 
@@ -75,11 +76,14 @@ impl TryFrom<&str> for PasswordPolicy {
 }
 
 fn parse_line<'a>(line: &'a str) -> (PasswordPolicy, Password<'a>) {
-    let colon_position = line.find(':').unwrap();
+    let colon_position = line.find(':').expect("file contains invalid entries");
     let policy_str = &line[0..colon_position];
     let password_str = &line[colon_position + 1..];
 
-    (PasswordPolicy::try_from(policy_str).unwrap(), Password::from(password_str))
+    (
+        PasswordPolicy::try_from(policy_str).expect("file contains invalid entries"), 
+        Password::from(password_str)
+    )
 }
 
 fn main() {
@@ -90,9 +94,8 @@ fn main() {
         .lines()
         .into_iter()
         .map( |line| parse_line(line))
-        .fold(0, |total, (policy, password)| 
-            if password.valid_for_count(&policy) { total + 1 } else { total }
-        );
+        .filter(|(policy, password)| password.valid_for_count(&policy))
+        .count();
 
     println!("Compliant passwords by count: {}", compliant_passwords);
 
@@ -101,9 +104,8 @@ fn main() {
         .lines()
         .into_iter()
         .map( |line| parse_line(line))
-        .fold(0, |total, (policy, password)| 
-            if password.valid_for_xor(&policy) { total + 1 } else { total }
-        );
+        .filter(|(policy, password)| password.valid_for_xor(&policy))
+        .count();
 
     println!("Compliant passwords by position: {}", compliant_passwords);
 }
