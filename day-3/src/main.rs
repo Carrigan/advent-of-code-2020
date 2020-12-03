@@ -1,19 +1,5 @@
 use std::fs;
 
-enum Terrain {
-    Clear,
-    Tree
-}
-
-impl From<char> for Terrain {
-    fn from(c: char) -> Terrain {
-        match c {
-            '.' => Terrain::Clear,
-            _ => Terrain::Tree
-        }
-    }
-}
-
 struct World {
     data: String
 }
@@ -28,37 +14,61 @@ impl World {
     }
 }
 
-fn toboggan_traverse(world: &World) -> usize {
+fn toboggan_traverse(world: &World, x_step: usize, y_step: usize) -> usize {
     let width = world.width();
     let mut count = 0;
     let mut x_index = 0;
+    let mut y_index = 0;
 
-    for line in world.data.lines() {
-        count = match Terrain::from(line.chars().nth(x_index).unwrap()) {
-            Terrain::Clear => count,
-            Terrain::Tree => count + 1
+    loop {
+        let line = match world.data.lines().nth(y_index) {
+            Some(l) => l,
+            None => break
         };
 
-        x_index += 3;
-        if x_index >= width {
-            x_index -= width;
-        }
+        count = match line.chars().nth(x_index).unwrap() {
+            '.' => count,
+            _ => count + 1
+        };
+
+        x_index += x_step;
+        if x_index >= width { x_index -= width; }
+
+        y_index += y_step;
     }
 
     count
 }
 
 fn main() {
+    // Part 1
     let world = World::new("input.txt");
-    let tree_count = toboggan_traverse(&world);
+    let tree_count = toboggan_traverse(&world, 3, 1);
 
-    println!("Tree count: {}", tree_count);
+    println!("(3, 1) count: {}", tree_count);
+
+    // Part 2
+    let multiplied_trees = [(1, 1), (3, 1), (5, 1), (7, 1), (1, 2)]
+        .into_iter()
+        .map(|(x, y)| toboggan_traverse(&world, *x, *y))
+        .fold(1, |total, current| total * current);
+
+    println!("Multiplied aggregate count: {}", multiplied_trees);
 }
 
 #[test]
 fn test_example() {
     let world = World::new("example.txt");
-    let tree_count = toboggan_traverse(&world);
 
+    // Part 1
+    let tree_count = toboggan_traverse(&world, 3, 1);
     assert_eq!(tree_count, 7);
+
+    // Part 2
+    let multiplied_trees = [(1, 1), (3, 1), (5, 1), (7, 1), (1, 2)]
+        .into_iter()
+        .map(|(x, y)| toboggan_traverse(&world, *x, *y))
+        .fold(1, |total, current| total * current);
+
+    assert_eq!(multiplied_trees, 336);
 }
