@@ -22,14 +22,26 @@ impl From<&str> for Seat {
 }
 
 fn main() {
-    // Part 1
-    let max = std::fs::read_to_string("input.txt")
-        .expect("could not open input.txt")
+    // Input
+    let input = std::fs::read_to_string("input.txt")
+        .expect("could not open input.txt");
+
+    let seat_ids = input
         .lines()
         .map(|l| Seat::from(l).id)
-        .max();
+        .collect::<Vec<u32>>();
 
-    println!("{}", max.unwrap());
+    // Part 1
+    let max = *seat_ids.iter().max().unwrap();
+    println!("Part 1: {}", max);
+
+    // Part 2
+    let min = *seat_ids.iter().min().unwrap();
+    let my_seat = (min..max)
+        .find(|x| !seat_ids.contains(x))
+        .unwrap();
+
+    println!("Part 2: {}", my_seat);
 }
 
 #[test]
