@@ -7,14 +7,11 @@ impl From<&str> for Seat {
     fn from(input: &str) -> Self {
         let id = input
             .chars()
-            .enumerate()
-            .fold(0, |total, (index, ch)| {
-                let binary_value = match ch {
+            .fold(0, |total, ch| {
+                (total << 1) + match ch {
                     'B' | 'R' => 1,
                     _ => 0
-                };
-
-                total + (binary_value << (9 - index))
+                }
             });
 
         Seat { id }
