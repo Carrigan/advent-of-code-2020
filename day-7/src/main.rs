@@ -60,7 +60,7 @@ fn add_rule(bags: &mut Vec<String>, bag_rules: &mut Vec<BagRule>, line: &str) {
     });
 }
 
-fn traverse(found: &mut Vec<usize>, current: usize, rules: &Vec<BagRule>) {
+fn traverse_up(found: &mut Vec<usize>, current: usize, rules: &Vec<BagRule>) {
     if found.contains(&current) { return; }
     
     found.push(current);
@@ -71,18 +71,30 @@ fn traverse(found: &mut Vec<usize>, current: usize, rules: &Vec<BagRule>) {
         .map(|rule| rule.container_index)
         .collect();
     
-    containers_to_search.iter().for_each(|container_index| traverse(found, *container_index, rules));
+    containers_to_search.iter().for_each(|container_index| traverse_up(found, *container_index, rules));
 }
 
-fn traverse_from_point(bags: &Vec<String>, bag_rules: &Vec<BagRule>, starting_point: &str) -> usize {
+fn traverse_up_from_point(bags: &Vec<String>, bag_rules: &Vec<BagRule>, starting_point: &str) -> usize {
     let starting_index = bags.iter().position(|bag| (*bag).as_str() == starting_point).unwrap();
     let mut found = Vec::new();
 
     // Fill up the traversal
-    traverse(&mut found, starting_index, bag_rules);
+    traverse_up(&mut found, starting_index, bag_rules);
 
     // Subtract one to remove the node itself
     found.len() - 1
+}
+
+fn self_and_bags_contained(rules: &Vec<BagRule>, index: usize) -> usize {
+    1 + rules
+        .iter()
+        .filter(|rule| rule.container_index == index)
+        .map(|rule| (rule.count as usize) * self_and_bags_contained(rules, rule.contained_index))
+        .sum::<usize>()
+}
+
+fn traverse_bags_contained(rules: &Vec<BagRule>, index: usize) -> usize {
+    self_and_bags_contained(rules, index) - 1
 }
 
 fn main() {
@@ -96,8 +108,13 @@ fn main() {
         .for_each(|l| add_rule(&mut bags, &mut bag_rules, l));
 
     // Part one
-    let graph_count = traverse_from_point(&bags, &bag_rules, "shiny gold");
+    let graph_count = traverse_up_from_point(&bags, &bag_rules, "shiny gold");
     println!("Part one: {}", graph_count);
+
+    // Part two
+    let starting_index = bags.iter().position(|bag| (*bag).as_str() == "shiny gold").unwrap();
+    let bags_contained = traverse_bags_contained(&bag_rules, starting_index);
+    println!("Part two: {}", bags_contained);
 }
 
 #[test]
@@ -130,6 +147,21 @@ fn test_example_part_1() {
 
     assert_eq!(bag_rules.len(), 13);
 
-    let graph_count = traverse_from_point(&bags, &bag_rules, "shiny gold");
+    let graph_count = traverse_up_from_point(&bags, &bag_rules, "shiny gold");
     assert_eq!(graph_count, 4);
+}
+
+#[test]
+fn test_example_part_2() {
+    let mut bags = Vec::new();
+    let mut bag_rules = Vec::new();
+    
+    std::fs::read_to_string("example2.txt")
+        .unwrap()
+        .lines()
+        .for_each(|l| add_rule(&mut bags, &mut bag_rules, l));
+
+    let starting_index = bags.iter().position(|bag| (*bag).as_str() == "shiny gold").unwrap();
+    let contains_bags = traverse_bags_contained(&bag_rules, starting_index);
+    assert_eq!(contains_bags, 126);
 }
