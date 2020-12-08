@@ -74,15 +74,11 @@ impl Program {
             Instruction::Jmp(x) => ((self.pc as i32) + x) as usize
         };
 
-        if self.pc > self.instructions.len() {
-            return StepResult::OutOfBounds;
+        match self.pc {
+            x if x > self.instructions.len() => StepResult::OutOfBounds,
+            x if x == self.instructions.len() => StepResult::EndOfProgram,
+            _ => StepResult::Ok
         }
-
-        if self.pc >= self.instructions.len() {
-            return StepResult::EndOfProgram;
-        }
-
-        StepResult::Ok
     }
 
     fn attempt_correction(&mut self) -> bool {
@@ -96,11 +92,11 @@ impl Program {
             // Perform the swap
             self.instructions[index] = mutated_instruction;
     
-            // Run the program
-            match self.run() {
-                Ok(_) => return true,
-                Err(_) => self.instructions[index] = original_instruction
-            }
+            // Run the program and return true if a good swap was found
+            if self.run().is_ok() { return true; }
+
+            // Otherwise revert the swap and continue
+            self.instructions[index] = original_instruction;
         }
 
         false
