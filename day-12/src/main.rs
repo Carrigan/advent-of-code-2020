@@ -1,4 +1,3 @@
-
 enum Instruction {
     Forward(u32),
     Left(u32),
@@ -12,7 +11,7 @@ enum Instruction {
 impl From<&str> for Instruction {
     fn from(st: &str) -> Self {
         let amount = st[1..].parse().unwrap();
-        
+
         match st.chars().nth(0).unwrap() {
             'N' => Instruction::North(amount),
             'S' => Instruction::South(amount),
@@ -30,6 +29,65 @@ struct Ship {
     heading: u16,
     x: i32,
     y: i32
+}
+
+struct Waypoint {
+    x: i32,
+    y: i32
+}
+
+impl Waypoint {
+    fn new() -> Self {
+        Waypoint { x: 10, y: 1 }
+    }
+
+    fn rotate_ccw(&mut self, amount: u32) {
+        let mut amount_left = amount;
+
+        while amount_left > 0 {
+            let (x, y) = (self.x, self.y);
+
+            self.x = -y;
+            self.y = x;
+
+            amount_left -= 90;
+        }
+    }
+
+    fn rotate_cw(&mut self, amount: u32) {
+        let mut amount_left = amount;
+
+        while amount_left > 0 {
+            let (x, y) = (self.x, self.y);
+
+            self.x = y;
+            self.y = -x;
+
+            amount_left -= 90;
+        }
+    }
+
+    fn apply(&mut self, ship: &mut Ship, instruction: &Instruction) {
+        match instruction {
+            Instruction::Forward(amount) => {
+                ship.x += self.x * (*amount as i32);
+                ship.y += self.y * (*amount as i32);
+            },
+            Instruction::Left(amount) => self.rotate_ccw(*amount),
+            Instruction::Right(amount) => self.rotate_cw(*amount),
+            Instruction::North(amount) => self.y += *amount as i32,
+            Instruction::South(amount) => self.y -= *amount as i32,
+            Instruction::East(amount) => self.x += *amount as i32,
+            Instruction::West(amount) => self.x -= *amount as i32
+        }
+    }
+
+    fn execute(&mut self, ship: &mut Ship, input: &str) {
+        std::fs::read_to_string(input).unwrap()
+            .lines()
+            .map(|line| Instruction::from(line))
+            .for_each(|instr| self.apply(ship, &instr));
+    }
 }
 
 impl Ship {
@@ -78,6 +136,14 @@ fn main() {
     let mut ship = Ship::new();
     ship.execute("input.txt");
     println!("Part one: {}", manhattan_distance(ship.x, ship.y, 0, 0));
+
+    // Part 2
+    let mut ship = Ship::new();
+    let mut waypoint = Waypoint::new();
+
+    waypoint.execute(&mut ship, "input.txt");
+
+    println!("Part two: {}", manhattan_distance(ship.x, ship.y, 0, 0));
 }
 
 #[test]
@@ -86,4 +152,13 @@ fn test_part_1() {
     ship.execute("example.txt");
 
     assert_eq!(manhattan_distance(ship.x, ship.y, 0, 0), 25);
+}
+
+#[test]
+fn test_part_2() {
+    let mut ship = Ship::new();
+    let mut waypoint = Waypoint::new();
+    waypoint.execute(&mut ship, "example.txt");
+
+    assert_eq!(manhattan_distance(ship.x, ship.y, 0, 0), 286);
 }
