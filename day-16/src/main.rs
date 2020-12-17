@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use regex::Regex;
 struct TicketValidation {
     name: String,
@@ -28,8 +30,6 @@ impl TicketValidation {
         (other >= self.lower_two && other <= self.upper_two)
     }
 }
-
-
 
 fn parse_input(path: &str) -> (Vec<TicketValidation>, Vec<usize>, Vec<Vec<usize>>) {
     let file = std::fs::read_to_string(path).unwrap();
@@ -65,11 +65,95 @@ fn find_invalid_fields(nearby: &[Vec<usize>], validations: &[TicketValidation]) 
         .collect()
 }
 
+fn column_possibilities(nearby: &[Vec<usize>], validations: &[TicketValidation]) -> Vec<Vec<usize>> {
+    let valid_tickets: Vec<&Vec<usize>> = nearby
+        .iter()
+        .filter(|ticket| {
+            ticket.iter().all(|&n| {
+                validations.iter().any(|val| val.validate(n))
+            })
+        })
+        .collect();
+
+    let col_count = valid_tickets[0].len();
+
+    // Return a list of length col_count where each is a [rule_index]
+    (0..col_count)
+        .map(|index| {
+            let rule_indeces = validations
+                .iter()
+                .enumerate()
+                .filter(|(_, validation)| {
+                    valid_tickets.iter().map(|ticket| ticket[index]).all(|n| validation.validate(n))
+                })
+                .map(|(val_idx, _)| val_idx)
+                .collect();
+
+            rule_indeces
+        })
+        .collect()
+}
+
+fn only<F: Iterator<Item=usize>>(iter: &mut F) -> Option<usize> {
+    let first_number = match iter.next() {
+        Some(n) => n,
+        None => return None
+    };
+
+    match iter.next() {
+        Some(_) => None,
+        None => Some(first_number)
+    }
+}
+
+fn solve_possibilities(columns: &[Vec<usize>]) -> HashMap<usize, usize> {
+    // `possibilities` is a list of lists where each inner list is called a
+    // possibility_list and each entry in that is called a possibility
+    // solved contains a map of rule_index: column_index
+    let mut solved: HashMap<usize, usize> = HashMap::new();
+
+    loop {
+        // Each iteration of this we are looking for possibility_lists that can
+        // only be one value.
+        let solved_possibility_lists: Vec<(usize, usize)> = columns
+            .iter()
+            .enumerate()
+            .filter(|(column_index, _)| solved.values().find(|&v| v == column_index).is_none())
+            .filter_map(|(column_index, rule_list)| {
+                let mut unclaimed_rule_indeces = rule_list
+                    .iter()
+                    .filter(|possibility| !solved.contains_key(possibility))
+                    .map(|&n| n);
+
+                only(&mut unclaimed_rule_indeces).map(|rule_index| (rule_index, column_index))
+            })
+            .collect();
+
+        if solved_possibility_lists.len() == 0 { break; }
+
+        solved_possibility_lists.iter().for_each(|(rule_index, column_index)|
+            { solved.insert(*rule_index, *column_index); });
+    }
+
+    solved
+}
+
 fn main() {
     // Part one
-    let (validations, _, nearby) = parse_input("input.txt");
+    let (validations, my_ticket, nearby) = parse_input("input.txt");
     let invalid_sum = find_invalid_fields(&nearby, &validations).iter().sum::<usize>();
     println!("Part one: {}", invalid_sum);
+
+    // positions 0-5 are the departure fields
+    let columns = column_possibilities(&nearby, &validations);
+    let mappings = solve_possibilities(&columns);
+    println!("{:?}", mappings);
+    let product = mappings.iter()
+        .filter(|(&rule_index, _)| rule_index < 6)
+        .map(|(_, &col_index)| my_ticket.get(col_index).unwrap())
+        .product::<usize>();
+
+    println!("Part two: {}", product);
 }
 
 #[test]
@@ -88,4 +172,16 @@ fn test_parsers() {
 fn test_part_one() {
     let (validations, _, nearby) = parse_input("example1.txt");
     assert_eq!(find_invalid_fields(&nearby, &validations).iter().sum::<usize>(), 71);
+}
+
+#[test]
+fn test_part_two() {
+    let (validations, _, nearby) = parse_input("example1.txt");
+    let columns = column_possibilities(&nearby, &validations);
+    let solved = solve_possibilities(&columns);
+
+    println!("{:?}", solved);
+    assert_eq!(solved[&0], 1);
+    assert_eq!(solved[&1], 0);
+    assert_eq!(solved[&2], 2);
 }
