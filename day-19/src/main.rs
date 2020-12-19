@@ -5,7 +5,8 @@ use regex::Regex;
 enum Rule {
     Concrete(char),
     SingleReference(Vec<usize>),
-    DoubleReference(Vec<usize>, Vec<usize>)
+    DoubleReference(Vec<usize>, Vec<usize>),
+    Special(String)
 }
 
 fn parse_reference(post_semicolon: &str) -> Rule {
@@ -69,24 +70,48 @@ fn rule_to_string(rules: &HashMap<usize, Rule>, index: usize) -> String {
             let second_ref_string = join_refs(rules, &second_refs);
 
             format!("({}|{})", first_ref_string, second_ref_string)
-        }
+        },
+        Rule::Special(s) => s.clone()
     }
 }
 
-fn main() {
-    // Part One
-    let (rules, messages) = read_input("input.txt");
+fn modify_rules(rules: &mut HashMap<usize, Rule>) {
+    let r42 = rule_to_string(rules, 42);
+    let r31 = rule_to_string(rules, 31);
+
+    let modified_rule_8 = Rule::Special(
+        format!("({r42})+", r42=r42)
+    );
+
+    let modified_rule_11 = Rule::Special(
+        format!("({r42}({r42}({r42}({r42}{r31})?{r31})?{r31})?{r31})", r42=r42, r31=r31)
+    );
+
+    rules.insert(8, modified_rule_8);
+    rules.insert(11, modified_rule_11);
+}
+
+fn valid_message_count(path: &str, modify: bool) -> usize {
+    let (mut rules, messages) = read_input(path);
+    if modify { modify_rules(&mut rules); }
     let rule_regex = rule_to_string(&rules, 0);
     let r = Regex::new(&format!("^{}$", rule_regex)).unwrap();
 
-    println!("Part one count: {}", messages.iter().filter(|m| r.is_match(m)).count());
+    messages.iter().filter(|m| r.is_match(m)).count()
+}
+
+fn main() {
+    println!("Part one count: {}", valid_message_count("input.txt", false));
+    println!("Part two count: {}", valid_message_count("input.txt", true));
 }
 
 #[test]
 fn test_part_one() {
-    let (rules, messages) = read_input("example.txt");
-    let rule_regex = rule_to_string(&rules, 0);
-    let r = Regex::new(&format!("^{}$", rule_regex)).unwrap();
+    assert_eq!(2, valid_message_count("example.txt", false));
+}
 
-    assert_eq!(2, messages.iter().filter(|m| r.is_match(m)).count());
+#[test]
+fn test_part_two() {
+    assert_eq!(3, valid_message_count("example2.txt", false));
+    assert_eq!(12, valid_message_count("example2.txt", true));
 }
