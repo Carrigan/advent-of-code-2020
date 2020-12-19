@@ -27,6 +27,8 @@ fn apply(accumulator: u64, operand: u64, operator: Option<Token>) -> u64 {
 }
 
 fn evaluate_ltr(tokens: &[Token]) -> (usize, u64) {
+
+
     let mut total = 0;
     let mut index = 0;
     let mut context = Some(Token::AdditionSymbol);
@@ -35,7 +37,6 @@ fn evaluate_ltr(tokens: &[Token]) -> (usize, u64) {
         let token = &tokens[index];
 
         match token {
-            // If mult/add: set context
             Token::AdditionSymbol => context = Some(Token::AdditionSymbol),
             Token::MultiplicationSymbol => context = Some(Token::MultiplicationSymbol),
             Token::Number(n) => {
@@ -67,7 +68,6 @@ fn evaluate_with_precedence(tokens: &[Token]) -> (usize, u64) {
         let token = &tokens[index];
 
         match token {
-            // If mult/add: set context
             Token::AdditionSymbol => context = Some(Token::AdditionSymbol),
             Token::MultiplicationSymbol => {
                 let (increment, n) = evaluate_with_precedence(&tokens[index + 1..]);
