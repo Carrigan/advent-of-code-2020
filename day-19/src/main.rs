@@ -1,15 +1,11 @@
 use std::collections::HashMap;
-
-#[derive(Debug)]
-struct RuleReference {
-    matches: Vec<usize>,
-    alt_matches: Option<Vec<usize>>
-}
+use regex::Regex;
 
 #[derive(Debug)]
 enum Rule {
     Concrete(char),
-    Reference(RuleReference)
+    SingleReference(Vec<usize>),
+    DoubleReference(Vec<usize>, Vec<usize>)
 }
 
 fn parse_reference(post_semicolon: &str) -> Rule {
@@ -22,12 +18,11 @@ fn parse_reference(post_semicolon: &str) -> Rule {
                 .collect::<Vec<usize>>()
         });
 
-    let rule_ref = Rule::Reference(RuleReference {
-        matches: pipe_split.next().unwrap(),
-        alt_matches: pipe_split.next()
-    });
-
-    rule_ref
+    let first_match = pipe_split.next().unwrap();
+    match pipe_split.next() {
+        Some(second_reference) => Rule::DoubleReference(first_match, second_reference),
+        None => Rule::SingleReference(first_match)
+    }
 }
 
 fn read_input(path: &str) -> (HashMap<usize, Rule>, Vec<String>) {
@@ -61,40 +56,19 @@ fn read_input(path: &str) -> (HashMap<usize, Rule>, Vec<String>) {
     (rules, messages)
 }
 
-fn permute_lists(v1: Vec<String>, v2: Vec<String>) -> Vec<String> {
-    let mut permutes = Vec::new();
-
-    for s1 in v1.iter() {
-        for s2 in v2.iter() {
-            permutes.push(s1.clone() + &s2.clone());
-        }
-    }
-
-    permutes
+fn join_refs(rules: &HashMap<usize, Rule>, refs: &Vec<usize>) -> String {
+    refs.iter().map(|rule_ref| rule_to_string(rules, *rule_ref)).collect::<Vec<String>>().join("")
 }
 
-fn combine(indeces: &[usize], rules: &HashMap<usize, Rule>) -> Vec<String> {
-    let mut rule_iter = indeces.iter();
-    let first_index = rule_iter.next().unwrap();
-    let starting_strings = expand(rules, *first_index);
+fn rule_to_string(rules: &HashMap<usize, Rule>, index: usize) -> String {
+    match &rules[&index] {
+        Rule::Concrete(n) => n.to_string(),
+        Rule::SingleReference(refs) => join_refs(rules, &refs),
+        Rule::DoubleReference(first_refs, second_refs) => {
+            let first_ref_string = join_refs(rules, &first_refs);
+            let second_ref_string = join_refs(rules, &second_refs);
 
-    rule_iter.fold(starting_strings, |current, next| {
-        permute_lists(current, expand(rules, *next))
-    })
-}
-
-fn expand(rules: &HashMap<usize, Rule>, index: usize) -> Vec<String> {
-    match rules.get(&index).unwrap() {
-        Rule::Concrete(c) => vec![c.to_string()],
-        Rule::Reference(rule_ref) => {
-            let mut out = combine(&rule_ref.matches, rules);
-
-            if let Some(other_matches) = &rule_ref.alt_matches {
-                let mut combined = combine(&other_matches, rules);
-                out.append(&mut combined);
-            }
-
-            out
+            format!("({}|{})", first_ref_string, second_ref_string)
         }
     }
 }
@@ -102,18 +76,17 @@ fn expand(rules: &HashMap<usize, Rule>, index: usize) -> Vec<String> {
 fn main() {
     // Part One
     let (rules, messages) = read_input("input.txt");
-    let options = expand(&rules, 0);
-    println!("Part one options expanded: {} found", options.len());
+    let rule_regex = rule_to_string(&rules, 0);
+    let r = Regex::new(&format!("^{}$", rule_regex)).unwrap();
 
-    let valid = messages.iter().filter(|m| options.contains(m)).count();
-    println!("Valid for part one: {}", valid);
+    println!("Part one count: {}", messages.iter().filter(|m| r.is_match(m)).count());
 }
 
 #[test]
 fn test_part_one() {
     let (rules, messages) = read_input("example.txt");
-    let options = expand(&rules, 0);
-    let valid = messages.iter().filter(|m| options.contains(m)).count();
+    let rule_regex = rule_to_string(&rules, 0);
+    let r = Regex::new(&format!("^{}$", rule_regex)).unwrap();
 
-    assert_eq!(valid, 2);
+    assert_eq!(2, messages.iter().filter(|m| r.is_match(m)).count());
 }
