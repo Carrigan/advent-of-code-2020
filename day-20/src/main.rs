@@ -1,5 +1,6 @@
 #![allow(dead_code, unused_imports)]
-use std::collections::HashMap;
+#[cfg(test)]
+mod tests;
 
 #[derive(Debug)]
 struct Tile {
@@ -7,6 +8,23 @@ struct Tile {
     data: Vec<bool>,
     width: u32,
     sides: [u32; 4]
+}
+
+// 0 2 4 6 8101214161820
+//                   # |
+// #    ##    ##    ###|
+//  #  #  #  #  #  #   |
+fn is_sea_monster(window: &Vec<bool>) -> bool {
+    let positives = [
+        (18, 0),
+        (0, 1), (5, 1), (6, 1), (11, 1), (12, 1), (17, 1), (18, 1), (19, 1),
+        (1, 2), (4, 2), (7, 2), (10, 2), (13, 2), (16, 2)
+    ];
+
+    positives
+        .iter()
+        .map(|(x, y)| y * 20 + x)
+        .all(|idx| window[idx])
 }
 
 fn invert_side(width: u32, side: u32) -> u32 {
@@ -75,6 +93,40 @@ impl Tile {
         }
 
         None
+    }
+
+    fn index(&self, x: usize, y: usize, rotation: usize, flipped: bool) -> bool {
+        let (x, y) = match flipped {
+            false => {
+                match rotation {
+                    0 => (x + 1, y + 1),
+                    1 => (8 - y, x + 1),
+                    2 => (8 - x, 8 - y),
+                    _ => (y + 1, 8 - x),
+                }
+            }
+            true => {
+                match rotation {
+                    0 => (8 - x, y + 1),
+                    1 => (y + 1, x + 1),
+                    2 => (x + 1, 8 - y),
+                    _ => (8 - y, 8 - x),
+                }
+            }
+        };
+
+        self.data[y * self.width as usize + x]
+    }
+
+    fn show(&self, rotation: usize, flipped: bool) {
+        println!("\n{} {}", rotation, flipped);
+        for y in 0..8 {
+            for x in 0..8 {
+                print!("{}", if self.index(x, y, rotation, flipped) { "#" } else { "." });
+            }
+
+            println!("");
+        }
     }
 }
 
@@ -271,51 +323,4 @@ fn main() {
     puzzle.solve(&tiles);
     let corner_product: u64 = puzzle.corner_labels(&tiles).iter().product();
     println!("Part one: {}", corner_product);
-}
-
-#[test]
-fn test_part_one() {
-    let tiles = parse_input("example1.txt");
-    let mut puzzle = Puzzle::new();
-
-    puzzle.solve(&tiles);
-
-    let corner_product: u64 = puzzle.corner_labels(&tiles).iter().product();
-    assert_eq!(corner_product, 20899048083289);
-}
-
-#[test]
-fn test_rotation() {
-
-    let tile = Tile { width: 10, sides: [376, 156, 28, 80], label: 0, data: Vec::new() };
-
-    assert_eq!(tile.side_with_translations(0, 1, true), 40);
-    assert_eq!(tile.side_with_translations(1, 1, true), 224);
-    assert_eq!(tile.side_with_translations(2, 1, true), 228);
-    assert_eq!(tile.side_with_translations(3, 1, true), 122);
-
-
-}
-
-#[test]
-fn test_has_unique_edges() {
-    let tiles = parse_input("input.txt");
-    let mut side_count = HashMap::new();
-
-    tiles.iter().for_each(|t| {
-        let sides = t.sides;
-        let inverted_sides = [
-            invert_side(10, sides[0]),
-            invert_side(10, sides[1]),
-            invert_side(10, sides[2]),
-            invert_side(10, sides[3])
-        ];
-
-        for side in sides.iter().chain(inverted_sides.iter()) {
-            *side_count.entry(*side).or_insert(0) += 1;
-        }
-    });
-
-    assert!(side_count.values().all(|&v| v <= 2));
-    println!("{:?}", side_count);
 }
