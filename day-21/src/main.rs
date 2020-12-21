@@ -88,6 +88,7 @@ fn non_allergen_count(foods: &Vec<IngredientsList>, allergenic_foods: Vec<String
 }
 
 fn main() {
+    // Part one
     let foods: Vec<IngredientsList> = std::fs::read_to_string("input.txt")
         .unwrap()
         .lines()
@@ -95,14 +96,20 @@ fn main() {
         .collect();
 
     let commonalities = common_ingredients_by_allergen(&foods);
-    let solved_allergens = solve_allergens(commonalities);
+    let mut solved_allergens = solve_allergens(commonalities);
     let allergenic_indredients = solved_allergens.iter().map(|(ing, _)| ing.clone()).collect();
 
     println!("Part one: {:?}", non_allergen_count(&foods, allergenic_indredients));
+
+    // Part two
+    solved_allergens.sort_by(|(_, all1), (_, all2)| all1.cmp(all2));
+    let canonical_dangerous_ingredients = solved_allergens.iter().map(|(ing, _)| ing).join(",");
+    println!("Part two: {:?}", canonical_dangerous_ingredients);
 }
 
 #[test]
-fn test_part_one() {
+fn parts_one_and_two() {
+    // Part one
     let foods: Vec<IngredientsList> = std::fs::read_to_string("example1.txt")
         .unwrap()
         .lines()
@@ -110,7 +117,12 @@ fn test_part_one() {
         .collect();
 
     let commonalities = common_ingredients_by_allergen(&foods);
-    let solved_allergens = solve_allergens(commonalities);
+    let mut solved_allergens = solve_allergens(commonalities);
     let allergenic_indredients = solved_allergens.iter().map(|(ing, _)| ing.clone()).collect();
     assert_eq!(non_allergen_count(&foods, allergenic_indredients), 5);
+
+    // Part two
+    solved_allergens.sort_by(|(_, all1), (_, all2)| all1.cmp(all2));
+    let canonical_dangerous_ingredients = solved_allergens.iter().map(|(ing, _)| ing).join(",");
+    assert_eq!(&canonical_dangerous_ingredients, "mxmxvkd,sqjhc,fvjkl")
 }
