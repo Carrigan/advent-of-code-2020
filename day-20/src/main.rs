@@ -1,72 +1,9 @@
 #![allow(dead_code, unused_imports)]
 #[cfg(test)]
 mod tests;
+mod tile;
 
-#[derive(Debug)]
-struct Tile {
-    label: u32,
-    data: Vec<bool>,
-    width: u32,
-    sides: [u32; 4]
-}
-
-// 0 2 4 6 8101214161820
-//                   # |
-// #    ##    ##    ###|
-//  #  #  #  #  #  #   |
-fn is_sea_monster(window: &Vec<bool>) -> bool {
-    let positives = [
-        (18, 0),
-        (0, 1), (5, 1), (6, 1), (11, 1), (12, 1), (17, 1), (18, 1), (19, 1),
-        (1, 2), (4, 2), (7, 2), (10, 2), (13, 2), (16, 2)
-    ];
-
-    positives
-        .iter()
-        .map(|(x, y)| y * 20 + x)
-        .all(|idx| window[idx])
-}
-
-fn invert_side(width: u32, side: u32) -> u32 {
-    (0..width).fold(0, |total, n|
-        (total << 1) + ((side >> n) & 1)
-    )
-}
-
-impl From<&str> for Tile {
-    fn from(input: &str) -> Self {
-        let mut line_iter = input.lines();
-        let label_line = line_iter.next().unwrap();
-        let label: u32 = label_line[5..label_line.len()-1].parse().unwrap();
-        let mut data = Vec::new();
-        let mut width: u32 = 0;
-
-        for row in line_iter {
-            width = row.len() as u32;
-            row.chars().for_each(|c| data.push(c == '#'))
-        }
-
-        let top = (0..width)
-            .map(|i| if data[i as usize] { 1 } else { 0 })
-            .fold(0, |total, n| (total << 1) + n);
-
-        let right = (0..width)
-            .map(|i| if data[((i + 1) * width - 1) as usize] { 1 } else { 0 })
-            .fold(0, |total, n| (total << 1) + n);
-
-        let bottom = (0..width)
-            .map(|i| if data[data.len() - (i + 1) as usize] { 1 } else { 0 })
-            .fold(0, |total, n| (total << 1) + n);
-
-        let left = (0..width)
-            .map(|i| if data[data.len() - (width * (i + 1)) as usize] { 1 } else { 0 })
-            .fold(0, |total, n| (total << 1) + n);
-
-        let sides = [top, right, bottom, left];
-
-        Tile { label, data, sides, width }
-    }
-}
+use tile::Tile;
 
 fn index_rotated_grid(x: usize, y: usize, width: usize, height: usize, rotation: usize, flipped: bool) -> (usize, usize) {
     let height_index = height - 1;
@@ -89,72 +26,6 @@ fn index_rotated_grid(x: usize, y: usize, width: usize, height: usize, rotation:
                 _ => (height_index - y, width_index - x),
             }
         }
-    }
-}
-
-impl Tile {
-    // Rotate and then flip
-    fn side_with_translations(&self, index: usize, rotated: usize, flipped: bool) -> u32 {
-        let side_index = match flipped {
-            true => (8 - (index + rotated)) % 4,
-            false => (index + rotated) % 4
-        };
-
-        let raw_value = self.sides[side_index];
-
-        if flipped { invert_side(10, raw_value) } else { raw_value }
-    }
-
-    fn mates(&self, edge: u32) -> Option<(usize, bool)> {
-        for (side_index, &side) in self.sides.iter().enumerate() {
-            let inverted = invert_side(10, side);
-
-            if side == edge {
-                return Some((side_index, true))
-            } else if inverted == edge {
-                return Some((side_index, false))
-            }
-        }
-
-        None
-    }
-
-    fn index(&self, x: usize, y: usize, rotation: usize, flipped: bool) -> bool {
-        let (x, y) = index_rotated_grid(
-            x,
-            y,
-            self.width as usize - 2,
-            self.width as usize - 2,
-            rotation,
-            flipped
-        );
-
-        self.data[(y + 1) * self.width as usize + (x + 1)]
-    }
-
-    fn show(&self, rotation: usize, flipped: bool) {
-        println!("\n{} {}", rotation, flipped);
-        for y in 0..8 {
-            for x in 0..8 {
-                print!("{}", if self.index(x, y, rotation, flipped) { "#" } else { "." });
-            }
-
-            println!("");
-        }
-    }
-
-    fn trues(&self) -> usize {
-        let mut true_count = 0;
-
-        for y in 0..8 {
-            for x in 0..8 {
-                if self.index(x, y, 0, false) {
-                    true_count += 1;
-                }
-            }
-        }
-
-        true_count
     }
 }
 
@@ -215,7 +86,6 @@ impl Puzzle {
 
         while !all_placed {
             println!("\n\nPlacement iteration...");
-            self.print(tiles);
 
             let mut currently_placed = 0;
             all_placed = true;
@@ -242,18 +112,21 @@ impl Puzzle {
         }
     }
 
-    fn print(&self, tiles: &[Tile]) {
-        let x_min = self.0.iter().map(|p| p.x).min().unwrap();
+    fn print(&self, tiles: &[Tile], rotation: usize, flipped: bool)  {
         let x_max = self.0.iter().map(|p| p.x).max().unwrap();
-        let y_min = self.0.iter().map(|p| p.y).min().unwrap();
         let y_max = self.0.iter().map(|p| p.y).max().unwrap();
 
         println!("Status: ");
-        for y in y_min..=y_max {
-            for x in x_min..=x_max {
-                print!("{} ", match self.0.iter().find(|p| p.x == x && p.y == y) {
-                    Some(placement) => format!("{:04}", tiles[placement.tile_index].label),
-                    None => String::from("none")
+        for y in 0..=y_max {
+            for x in 0..=x_max {
+                let (shifted_x, shifted_y) = index_rotated_grid(x as usize, y as usize, x_max as usize + 1, y_max as usize + 1, rotation, flipped);
+                print!("{} ", match self.0.iter().find(|p| p.x as usize == shifted_x && p.y as usize == shifted_y) {
+                    Some(placement) => format!("|{:04} {} {}",
+                        tiles[placement.tile_index].label,
+                        placement.rotation,
+                        if placement.flipped { "x" } else { "." }
+                    ),
+                    None => String::from("|none 0 f")
                 });
             }
 
@@ -292,10 +165,7 @@ impl Puzzle {
         }
 
         println!("\nAttempting placement of piece {} ({})", index, tiles[index].label);
-        println!("- {:?} !{:?}",
-            tiles[index].sides,
-            tiles[index].sides.iter().map(|s| invert_side(10, *s)).collect::<Vec<u32>>()
-        );
+        println!("- {:?}", tiles[index].sides);
 
         // Place the first piece at the origin with no orientation
         if self.0.is_empty() {
@@ -331,7 +201,7 @@ impl Puzzle {
 
         println!(
             "- Mate found: [ptidx: {}, ptside: {}, mateside: {}, flipped: {}, value: {}, mate_value: {}]",
-            mate.0, mate.1, mate.2, mate.3, mate.4, invert_side(10, mate.4));
+            mate.0, mate.1, mate.2, mate.3, mate.4, tile::invert_side(10, mate.4));
 
         // Orient the piece accordingly
         let side_adjacency = [(0, 1), (1, 0), (0, -1), (-1, 0)];
@@ -358,28 +228,39 @@ impl Puzzle {
     }
 
     fn iter_sea_monster_windows<'a>(&'a self, tiles: &'a [Tile], rotation: usize, flipped: bool) -> SeaMonsterWindowIterator {
+        let rendered = self.render(tiles, rotation, flipped);
+
         SeaMonsterWindowIterator {
-            tiles, puzzle: self, index: 0, width: self.width(), height: self.height(), rotation, flipped
+            rendered, index: 0, width: self.width(), height: self.height()
         }
     }
 
     fn print_entirety(&self, tiles: &[Tile], rotation: usize, flipped: bool) {
-        (0..(self.width() * self.height() * 64))
-            .map(|index| (index % (self.width() * 8), index / (self.width() * 8)))
-            .for_each(|(x, y)| {
+        let rendered = self.render(tiles, rotation, flipped);
+
+        for y in 0..(self.width() * 8) {
+            for x in 0..(self.width() * 8) {
+                let index = (y * (self.width() * 8)) + x;
+                print!("{}{}{}",
+                    if y % 8 == 0 && x == 0 { "\n" } else { "" },
+                    if x % 8 == 0 { " " } else { "" },
+                    if rendered[index] { "#" } else { "." }
+                );
+            }
+
+            println!(" ");
+        }
+    }
+
+    fn render(&self, tiles: &[Tile], rotation: usize, flipped: bool) -> Vec<bool> {
+        let unrotated: Vec<bool> = (0..(self.width() * self.height() * 64))
+            .map(|index| {
+                let x = index % (self.width() * 8);
+                let y = index / (self.width() * 8);
+
                 // Get the relative piece
                 let x_panel = x / 8;
                 let y_panel = y / 8;
-
-                // Get the relative panel
-                let (x_panel, y_panel) = index_rotated_grid(
-                    x_panel,
-                    y_panel,
-                    self.width(),
-                    self.height(),
-                    rotation,
-                    flipped
-                );
 
                 // Get the index within there
                 let x_in_panel = x % 8;
@@ -390,24 +271,27 @@ impl Puzzle {
                 let placed_tile = &self.0[placement];
                 let tile = &tiles[placed_tile.tile_index];
 
-                // Index correctly (hopefully)
-                let directed_rotation = if flipped { -(rotation as i32) } else { rotation as i32 };
-                let additional_janky_rotation = if placed_tile.flipped && (placed_tile.rotation % 2 == 1) { 2 } else { 0 };
-                let total_rotation = ((6 + directed_rotation) as usize + placed_tile.rotation + additional_janky_rotation) % 4;
-                let final_flipped = !xor(placed_tile.flipped, flipped);
-                let value = tile.index(
-                    x_in_panel,
-                    y_in_panel,
-                    total_rotation,
-                    final_flipped
-                );
+                // Correct rotation
+                let flip_correction = !placed_tile.flipped;
+                let directed_rotation: i32 = if placed_tile.flipped { 2 } else { -2 };
 
-                print!("{}{}{}{}",
-                    if x_in_panel == 0 { " " } else { "" },
-                    if y_in_panel == 0 && x == 0 { "\n" } else { "" },
-                    if x == 0 { "\n" } else { "" },
-                    if value { '#' } else { '.' });
-            });
+                let rotation_correction =
+                    if placed_tile.flipped && (placed_tile.rotation % 2 == 1) {
+                        placed_tile.rotation
+                    } else {
+                        (4 + directed_rotation + placed_tile.rotation as i32) as usize % 4
+                    };
+
+                tile.index(x_in_panel, y_in_panel, rotation_correction, flip_correction)
+            }).collect();
+
+        (0..(self.width() * self.height() * 64)).map(|index| {
+            let (x, y) = (index % (self.width() * 8), index / (self.width() * 8));
+            let (ind_x, ind_y) = index_rotated_grid(x, y, self.width() * 8, self.width() * 8, rotation, flipped);
+            let transformed_index = ind_y * (self.width() * 8) + ind_x;
+
+            unrotated[transformed_index]
+        }).collect()
     }
 
     fn find_sea_monsters(&self, tiles: &[Tile]) -> (usize, usize, bool) {
@@ -440,17 +324,14 @@ impl Puzzle {
     }
 }
 
-struct SeaMonsterWindowIterator<'a> {
-    puzzle: &'a Puzzle,
-    tiles: &'a [Tile],
+struct SeaMonsterWindowIterator {
+    rendered: Vec<bool>,
     index: usize,
     width: usize,
-    height: usize,
-    rotation: usize,
-    flipped: bool
+    height: usize
 }
 
-impl <'a> Iterator for SeaMonsterWindowIterator<'a> {
+impl Iterator for SeaMonsterWindowIterator {
     type Item = (usize, usize, Vec<bool>);
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -467,42 +348,10 @@ impl <'a> Iterator for SeaMonsterWindowIterator<'a> {
 
         // Iterate and build
         let out = (0..60)
-            .map(|index| (index % 20, index / 20))
+            .map(|index| (start_x + (index % 20), start_y + (index / 20)))
             .map(|(x, y)| {
-                // Get the relative piece
-                let x_panel = (start_x + x) / 8;
-                let y_panel = (start_y + y) / 8;
-
-                // Get the relative panel
-                let (x_panel, y_panel) = index_rotated_grid(
-                    x_panel,
-                    y_panel,
-                    self.puzzle.width(),
-                    self.puzzle.height(),
-                    self.rotation,
-                    self.flipped
-                );
-
-                // Get the index within there
-                let x_in_panel = (start_x + x) % 8;
-                let y_in_panel = (start_y + y) % 8;
-
-                // Retrieve it
-                let placement = self.puzzle.placement_at(x_panel as i32, y_panel as i32);
-                let placed_tile = &self.puzzle.0[placement];
-                let tile = &self.tiles[placed_tile.tile_index];
-
-                // Index correctly (hopefully)
-                let directed_rotation = if self.flipped { -(self.rotation as i32) } else { self.rotation as i32 };
-                let additional_janky_rotation = if placed_tile.flipped && (placed_tile.rotation % 2 == 1) { 2 } else { 0 };
-                let total_rotation = ((6 + directed_rotation) as usize + placed_tile.rotation + additional_janky_rotation) % 4;
-                let final_flipped = !xor(placed_tile.flipped, self.flipped);
-                tile.index(
-                    x_in_panel,
-                    y_in_panel,
-                    total_rotation,
-                    final_flipped
-                )
+                let index = (y * self.width * 8) + x;
+                self.rendered[index]
             })
             .collect();
 
@@ -510,6 +359,23 @@ impl <'a> Iterator for SeaMonsterWindowIterator<'a> {
         self.index += 1;
         Some((start_x, start_y, out))
     }
+}
+
+// 0 2 4 6 8101214161820
+//                   # |
+// #    ##    ##    ###|
+//  #  #  #  #  #  #   |
+fn is_sea_monster(window: &Vec<bool>) -> bool {
+    let positives = [
+        (18, 0),
+        (0, 1), (5, 1), (6, 1), (11, 1), (12, 1), (17, 1), (18, 1), (19, 1),
+        (1, 2), (4, 2), (7, 2), (10, 2), (13, 2), (16, 2)
+    ];
+
+    positives
+        .iter()
+        .map(|(x, y)| y * 20 + x)
+        .all(|idx| window[idx])
 }
 
 fn derive_rotation(placed_side: usize, mate_side: usize, flipped: bool) -> usize {
@@ -528,6 +394,10 @@ fn main() {
     println!("Part one: {}", corner_product);
 
     // Part two
+    puzzle.print(&tiles, 2, false);
+    puzzle.print_entirety(&tiles, 2, false);
+
+
     let total_hash_count = tiles.iter().map(|t| t.trues()).sum::<usize>();
     let (sea_monsters, _, _) = puzzle.find_sea_monsters(&tiles);
     println!("Part two: {}, {}, {}", total_hash_count, sea_monsters, (total_hash_count - (15 * sea_monsters)));

@@ -18,6 +18,11 @@ fn test_part_two() {
     let mut puzzle = Puzzle::new();
     puzzle.solve(&tiles);
 
+    // This should match the advent example
+    puzzle.print_entirety(&tiles, 2, true);
+
+
+    println!("\n---");
     puzzle.print_entirety(&tiles, 3, false);
     println!("\n---");
     puzzle.print_entirety(&tiles, 2, false);
@@ -71,10 +76,10 @@ fn test_has_unique_edges() {
     tiles.iter().for_each(|t| {
         let sides = t.sides;
         let inverted_sides = [
-            invert_side(10, sides[0]),
-            invert_side(10, sides[1]),
-            invert_side(10, sides[2]),
-            invert_side(10, sides[3])
+            tile::invert_side(10, sides[0]),
+            tile::invert_side(10, sides[1]),
+            tile::invert_side(10, sides[2]),
+            tile::invert_side(10, sides[3])
         ];
 
         for side in sides.iter().chain(inverted_sides.iter()) {
