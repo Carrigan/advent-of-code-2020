@@ -13,6 +13,17 @@ fn test_part_one() {
 }
 
 #[test]
+fn test_part_two() {
+    let tiles = parse_input("example1.txt");
+    let mut puzzle = Puzzle::new();
+    puzzle.solve(&tiles);
+
+    puzzle.print_entirety(&tiles, 3, false);
+    println!("{:?}", tiles.iter().map(|t| t.trues()).sum::<usize>());
+    println!("{:?}. {}", puzzle.find_sea_monsters(&tiles), 303 - 30);
+}
+
+#[test]
 fn test_rotation() {
     let tile = Tile { width: 10, sides: [376, 156, 28, 80], label: 0, data: Vec::new() };
 
