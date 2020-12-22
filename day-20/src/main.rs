@@ -391,12 +391,15 @@ impl Puzzle {
                 let tile = &tiles[placed_tile.tile_index];
 
                 // Index correctly (hopefully)
-                let extra_rotation = if placed_tile.flipped { 0 } else { 2 };
+                let directed_rotation = if flipped { -(rotation as i32) } else { rotation as i32 };
+                let additional_janky_rotation = if placed_tile.flipped && (placed_tile.rotation % 2 == 1) { 2 } else { 0 };
+                let total_rotation = ((6 + directed_rotation) as usize + placed_tile.rotation + additional_janky_rotation) % 4;
+                let final_flipped = !xor(placed_tile.flipped, flipped);
                 let value = tile.index(
                     x_in_panel,
                     y_in_panel,
-                    (placed_tile.rotation + rotation + extra_rotation) % 4,
-                    !xor(placed_tile.flipped, flipped)
+                    total_rotation,
+                    final_flipped
                 );
 
                 print!("{}{}{}{}",
@@ -413,16 +416,22 @@ impl Puzzle {
             (true, 0), (true, 1), (true, 2), (true, 3)
         ];
 
-        orientations.iter()
+        let options = orientations.iter()
             .map(|(flipped, rotation)| {
                 let count = self.iter_sea_monster_windows(tiles, *rotation, *flipped)
                     .filter(|window| is_sea_monster(window))
                     .count();
 
-                (flipped, rotation, count)
+                (*flipped, *rotation, count)
             })
+            .collect::<Vec<(bool, usize, usize)>>();
+
+        println!("{:?}", options);
+
+        options
+            .iter()
             .find(|(_, _, count)| *count > 0)
-            .map(|(flipped, rotation, count)| (count, *rotation, *flipped))
+            .map(|(flipped, rotation, count)| (*count, *rotation, *flipped))
             .unwrap()
     }
 }
@@ -480,11 +489,15 @@ impl <'a> Iterator for SeaMonsterWindowIterator<'a> {
                 let tile = &self.tiles[placed_tile.tile_index];
 
                 // Index correctly (hopefully)
+                let directed_rotation = if self.flipped { -(self.rotation as i32) } else { self.rotation as i32 };
+                let additional_janky_rotation = if placed_tile.flipped && (placed_tile.rotation % 2 == 1) { 2 } else { 0 };
+                let total_rotation = ((6 + directed_rotation) as usize + placed_tile.rotation + additional_janky_rotation) % 4;
+                let final_flipped = !xor(placed_tile.flipped, self.flipped);
                 tile.index(
                     x_in_panel,
                     y_in_panel,
-                    (placed_tile.rotation + self.rotation + 2) % 4,
-                    !xor(placed_tile.flipped, self.flipped)
+                    total_rotation,
+                    final_flipped
                 )
             })
             .collect();
@@ -513,5 +526,5 @@ fn main() {
     // Part two
     let total_hash_count = tiles.iter().map(|t| t.trues()).sum::<usize>();
     let (sea_monsters, _, _) = puzzle.find_sea_monsters(&tiles);
-    println!("Part two: {}", (total_hash_count - (2 * sea_monsters)));
+    println!("Part two: {}, {}, {}", total_hash_count, sea_monsters, (total_hash_count - (15 * sea_monsters)));
 }
