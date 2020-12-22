@@ -19,6 +19,8 @@ fn test_part_two() {
     puzzle.solve(&tiles);
 
     puzzle.print_entirety(&tiles, 3, false);
+    println!("\n---");
+    puzzle.print_entirety(&tiles, 2, false);
 
     let (monster_count, _, _) = puzzle.find_sea_monsters(&tiles);
     let roughness = tiles.iter().map(|t| t.trues()).sum::<usize>();

@@ -419,7 +419,11 @@ impl Puzzle {
         let options = orientations.iter()
             .map(|(flipped, rotation)| {
                 let count = self.iter_sea_monster_windows(tiles, *rotation, *flipped)
-                    .filter(|window| is_sea_monster(window))
+                    .filter(|(_, _, window)| is_sea_monster(window))
+                    .map(|(x, y, window)| {
+                        println!("Monster at: {}, {}", x, y);
+                        (x, y, window)
+                    })
                     .count();
 
                 (*flipped, *rotation, count)
@@ -447,7 +451,7 @@ struct SeaMonsterWindowIterator<'a> {
 }
 
 impl <'a> Iterator for SeaMonsterWindowIterator<'a> {
-    type Item = Vec<bool>;
+    type Item = (usize, usize, Vec<bool>);
 
     fn next(&mut self) -> Option<Self::Item> {
         let usable_width = (self.width * 8) - 19;
@@ -504,7 +508,7 @@ impl <'a> Iterator for SeaMonsterWindowIterator<'a> {
 
         // Iterate and return
         self.index += 1;
-        Some(out)
+        Some((start_x, start_y, out))
     }
 }
 
