@@ -2,28 +2,25 @@ fn decrement_with_wrap(value: usize, max: usize) -> usize {
     if value == 0 { max - 1 } else { value - 1 }
 }
 
-fn preallocate_large_memory(size: usize) -> Vec<usize> {
-    let mut values = Vec::with_capacity(1_000_000);
-    (0..1_000_000).for_each(|n| values.push(n));
-
-    values
-}
-
-
 // Note: all values are -1.
-struct Cups<'a> {
-    nexts: &'a mut [usize],
+struct Cups {
+    nexts: Vec<usize>,
     current_value: usize
 }
 
-impl <'a> Cups <'a> {
-    fn new(input: &str, nexts: &'a mut [usize]) -> Self {
+impl Cups {
+    fn new(input: &str, size: usize) -> Self {
+        // Prefill the array
+        let mut nexts = Vec::with_capacity(size);
+        (0..size).for_each(|n| nexts.push(n + 1));
+
+        // Fill in the input values
         let input_values: Vec<usize> = input.chars()
             .map(|c| c.to_digit(10).map(|v| (v - 1) as usize).unwrap())
             .collect();
 
-        let mut previous_value = match input.len() < nexts.len() {
-            true => nexts.len() - 1,
+        let mut previous_value = match input.len() < size {
+            true => size - 1,
             false => *input_values.last().unwrap()
         };
 
@@ -33,10 +30,9 @@ impl <'a> Cups <'a> {
             previous_value = initial_value;
         }
 
-        // Then fill the rest sequentially
-        for n in input.len()..nexts.len() {
-            nexts[previous_value] = n;
-            previous_value = n;
+        // Point to the remainder of the array
+        if size > input_values.len() {
+            nexts[previous_value] = input_values.len();
         }
 
         Self { nexts, current_value: *input_values.first().unwrap() }
@@ -97,8 +93,7 @@ impl <'a> Cups <'a> {
 
 fn main() {
     // Part One:
-    let mut values = [0; 9];
-    let mut cups = Cups::new("598162734", &mut values);
+    let mut cups = Cups::new("598162734", 9);
     for _ in 0..100 { cups.play_round(); }
 
     let vals = cups.next_values(0, 9)
@@ -110,8 +105,7 @@ fn main() {
     println!("Part one: {}", vals);
 
     // Part two:
-    let mut values = preallocate_large_memory(1_000_000);
-    let mut cups = Cups::new("598162734", &mut values);
+    let mut cups = Cups::new("598162734", 1_000_000);
     for _ in 0..10_000_000 { cups.play_round(); }
 
     let vals = cups.next_values(0, 3);
@@ -120,8 +114,8 @@ fn main() {
 
 #[test]
 fn test_part_one() {
-    let mut values = [0; 9];
-    let mut cups = Cups::new("389125467", &mut values);
+    let mut cups = Cups::new("389125467", 9);
+    println!("{:?}", cups.nexts);
     for _ in 0..100 { cups.play_round(); }
 
     let vals = cups.next_values(0, 9)
@@ -135,9 +129,7 @@ fn test_part_one() {
 
 #[test]
 fn test_part_two() {
-    let mut values = preallocate_large_memory(1_000_000);
-    let mut cups = Cups::new("389125467", values.as_mut_slice());
-
+    let mut cups = Cups::new("389125467", 1_000_000);
     for _ in 0..10_000_000 { cups.play_round(); }
     let vals = cups.next_values(0, 3);
 
