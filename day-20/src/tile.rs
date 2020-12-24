@@ -1,3 +1,4 @@
+use super::orientation::{Orientation, Rotation, MatingSide};
 
 pub fn invert_side(width: u32, side: u32) -> u32 {
     (0..width).fold(0, |total, n|
@@ -49,50 +50,73 @@ impl From<&str> for Tile {
 }
 
 impl Tile {
-    // Rotate and then flip
-    pub fn side_with_translations(&self, index: usize, rotated: usize, flipped: bool) -> u32 {
-        let side_index = match flipped {
-            true => (8 - (index + rotated)) % 4,
-            false => (index + rotated) % 4
+    pub fn side_with_translations(&self, index: u32, orientation: Orientation) -> u32 {
+        let indexed_rotation = match orientation.flipped {
+            true => orientation.rotation.rotate_ccw(index) as usize,
+            false => orientation.rotation.rotate_cw(index) as usize
         };
 
-        let raw_value = self.sides[side_index];
+        let raw_value = self.sides[indexed_rotation];
 
-        if flipped { invert_side(10, raw_value) } else { raw_value }
+        if orientation.flipped { invert_side(10, raw_value) } else { raw_value }
     }
 
-    pub fn mates(&self, edge: u32) -> Option<(usize, bool)> {
+    pub fn mates(&self, edge: u32) -> Option<MatingSide> {
         for (side_index, &side) in self.sides.iter().enumerate() {
             let inverted = invert_side(10, side);
 
-            if side == edge {
-                return Some((side_index, true))
-            } else if inverted == edge {
-                return Some((side_index, false))
+            match side_index {
+                0 => {
+                    if side == edge {
+                        return Some(MatingSide::FlippedTop)
+                    } else if inverted == edge {
+                        return Some(MatingSide::NormalTop)
+                    }
+                }
+                1 => {
+                    if side == edge {
+                        return Some(MatingSide::FlippedLeft)
+                    } else if inverted == edge {
+                        return Some(MatingSide::NormalRight)
+                    }
+                }
+                2 => {
+                    if side == edge {
+                        return Some(MatingSide::FlippedBottom)
+                    } else if inverted == edge {
+                        return Some(MatingSide::NormalBottom)
+                    }
+                }
+                3 => {
+                    if side == edge {
+                        return Some(MatingSide::FlippedRight)
+                    } else if inverted == edge {
+                        return Some(MatingSide::FlippedLeft)
+                    }
+                }
+                _ => panic!()
             }
         }
 
         None
     }
 
-    pub fn index(&self, x: usize, y: usize, rotation: usize, flipped: bool) -> bool {
+    pub fn index(&self, x: usize, y: usize, orientation: Orientation) -> bool {
         let (x, y) = super::index_rotated_grid(
             x,
             y,
             self.width as usize - 2,
             self.width as usize - 2,
-            rotation,
-            flipped
+            orientation
         );
 
         self.data[(y + 1) * self.width as usize + (x + 1)]
     }
 
-    pub fn show(&self, rotation: usize, flipped: bool) {
-        println!("\n{} {}", rotation, flipped);
+    pub fn show(&self, orientation: Orientation) {
         for y in 0..8 {
             for x in 0..8 {
-                print!("{}", if self.index(x, y, rotation, flipped) { "#" } else { "." });
+                print!("{}", if self.index(x, y, orientation) { "#" } else { "." });
             }
 
             println!("");
@@ -104,7 +128,7 @@ impl Tile {
 
         for y in 0..8 {
             for x in 0..8 {
-                if self.index(x, y, 0, false) {
+                if self.index(x, y, Orientation { rotation: Rotation::RightSideUp, flipped: false }) {
                     true_count += 1;
                 }
             }

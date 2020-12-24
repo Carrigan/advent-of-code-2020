@@ -2,32 +2,11 @@
 #[cfg(test)]
 mod tests;
 mod tile;
+mod orientation;
 
 use tile::Tile;
+use orientation::{index_rotated_grid, Rotation, Orientation, MatingSide};
 
-fn index_rotated_grid(x: usize, y: usize, width: usize, height: usize, rotation: usize, flipped: bool) -> (usize, usize) {
-    let height_index = height - 1;
-    let width_index = width - 1;
-
-    match flipped {
-        false => {
-            match rotation {
-                0 => (x, y),
-                1 => (height_index - y, x),
-                2 => (width_index - x, height_index - y),
-                _ => (y, width_index - x),
-            }
-        }
-        true => {
-            match rotation {
-                0 => (width_index - x, y),
-                1 => (y, x),
-                2 => (x, height_index - y),
-                _ => (height_index - y, width_index - x),
-            }
-        }
-    }
-}
 
 fn parse_input(path: &str) -> Vec<Tile> {
     std::fs::read_to_string(path).unwrap()
@@ -41,20 +20,31 @@ struct PlacedTile {
     tile_index: usize,
     x: i32,
     y: i32,
-    rotation: usize,
-    flipped: bool
+    orientation: Orientation
 }
 
 impl PlacedTile {
-    fn placed_side(&self, tiles: &[Tile], index: usize) -> u32 {
-        tiles[self.tile_index].side_with_translations(index, self.rotation, self.flipped)
+    fn placed_side(&self, tiles: &[Tile], index: u32) -> u32 {
+        tiles[self.tile_index].side_with_translations(index, self.orientation)
+    }
+
+    fn place_next(&self, tile_index: usize, side_index: usize, mating_side: MatingSide) -> PlacedTile {
+        let side_offsets = [(0, -1), (1, 0), (0, 1), (-1, 0)][side_index];
+        let x = self.x + side_offsets.0;
+        let y = self.y + side_offsets.1;
+
+        // TODO!
+        let orientation = Orientation { rotation: Rotation::RightSideUp, flipped: false };
+
+        PlacedTile { tile_index, x, y, orientation }
+
     }
 }
 
 fn available_edges(placements: &[PlacedTile], tiles: &[Tile], placement_index: usize) -> Vec<(usize, usize, u32)> {
     let px = placements[placement_index].x;
     let py = placements[placement_index].y;
-    let side_adjacency = [(0, 1), (1, 0), (0, -1), (-1, 0)];
+    let side_adjacency = [(0, -1), (1, 0), (0, 1), (-1, 0)];
 
     side_adjacency.iter()
         .enumerate()
@@ -62,7 +52,7 @@ fn available_edges(placements: &[PlacedTile], tiles: &[Tile], placement_index: u
             placements.iter().find(|p| p.x == (px + x) && p.y == (py + y)).is_none()
         )
         .map(|(side, _)|
-            (placement_index, side, placements[placement_index].placed_side(tiles, side))
+            (placement_index, side, placements[placement_index].placed_side(tiles, side as u32))
         )
         .collect()
 }
@@ -112,19 +102,19 @@ impl Puzzle {
         }
     }
 
-    fn print(&self, tiles: &[Tile], rotation: usize, flipped: bool)  {
+    fn print(&self, tiles: &[Tile], orientation: Orientation)  {
         let x_max = self.0.iter().map(|p| p.x).max().unwrap();
         let y_max = self.0.iter().map(|p| p.y).max().unwrap();
 
         println!("Status: ");
         for y in 0..=y_max {
             for x in 0..=x_max {
-                let (shifted_x, shifted_y) = index_rotated_grid(x as usize, y as usize, x_max as usize + 1, y_max as usize + 1, rotation, flipped);
+                let (shifted_x, shifted_y) = index_rotated_grid(x as usize, y as usize, x_max as usize + 1, y_max as usize + 1, orientation);
                 print!("{} ", match self.0.iter().find(|p| p.x as usize == shifted_x && p.y as usize == shifted_y) {
                     Some(placement) => format!("|{:04} {} {}",
                         tiles[placement.tile_index].label,
-                        placement.rotation,
-                        if placement.flipped { "x" } else { "." }
+                        placement.orientation.rotation as u32,
+                        if placement.orientation.flipped { "x" } else { "." }
                     ),
                     None => String::from("|none 0 f")
                 });
@@ -161,7 +151,6 @@ impl Puzzle {
                 return true;
             },
             None => ()
-
         }
 
         println!("\nAttempting placement of piece {} ({})", index, tiles[index].label);
@@ -170,7 +159,8 @@ impl Puzzle {
         // Place the first piece at the origin with no orientation
         if self.0.is_empty() {
             println!("- Placing initial piece at 0, 0, 0, false");
-            self.0.push(PlacedTile { tile_index: index, x: 0, y: 0, rotation: 0, flipped: false });
+            let orientation = Orientation { rotation: Rotation::RightSideUp, flipped: false };
+            self.0.push(PlacedTile { tile_index: index, x: 0, y: 0, orientation });
             return true;
         }
 
@@ -187,7 +177,7 @@ impl Puzzle {
 
         // The mate will be of the form (PlacedTile index, side_index, mate_side, mate_flipped)
         let mate = possible_edges.iter().find_map(|&(placement_index, side_index, side_value)|
-            tile.mates(side_value).map(|(rotation, flipped)| (placement_index, side_index, rotation, flipped, side_value))
+            tile.mates(side_value).map(|mating_side| (placement_index, side_index, mating_side, side_value))
         );
 
         // If no mate is possible, return false
@@ -200,18 +190,13 @@ impl Puzzle {
         };
 
         println!(
-            "- Mate found: [ptidx: {}, ptside: {}, mateside: {}, flipped: {}, value: {}, mate_value: {}]",
-            mate.0, mate.1, mate.2, mate.3, mate.4, tile::invert_side(10, mate.4));
+            "- Mate found: [ptidx: {}, ptside: {}, mateside: {:?}, value: {}, mate_value: {}]",
+            mate.0, mate.1, mate.2, mate.3, tile::invert_side(10, mate.3)
+        );
 
-        // Orient the piece accordingly
-        let side_adjacency = [(0, 1), (1, 0), (0, -1), (-1, 0)];
-        let mate_tile = &self.0[mate.0];
-        let x = mate_tile.x + side_adjacency[mate.1].0;
-        let y = mate_tile.y + side_adjacency[mate.1].1;
-        let rotation = derive_rotation(mate.1, mate.2, mate.3);
 
         // Place the piece
-        let placement = PlacedTile { tile_index: index, x, y, rotation, flipped: mate.3 };
+        let placement = self.0[mate.0].place_next(index, mate.1, mate.2);
 
         println!("- {}: {:?}", self.0.len(), placement);
         self.0.push(placement);
@@ -227,16 +212,16 @@ impl Puzzle {
         self.0.iter().map(|p| p.y).max().unwrap() as usize + 1
     }
 
-    fn iter_sea_monster_windows<'a>(&'a self, tiles: &'a [Tile], rotation: usize, flipped: bool) -> SeaMonsterWindowIterator {
-        let rendered = self.render(tiles, rotation, flipped);
+    fn iter_sea_monster_windows<'a>(&'a self, tiles: &'a [Tile], orientation: Orientation) -> SeaMonsterWindowIterator {
+        let rendered = self.render(tiles, orientation);
 
         SeaMonsterWindowIterator {
             rendered, index: 0, width: self.width(), height: self.height()
         }
     }
 
-    fn print_entirety(&self, tiles: &[Tile], rotation: usize, flipped: bool) {
-        let rendered = self.render(tiles, rotation, flipped);
+    fn print_entirety(&self, tiles: &[Tile], orientation: Orientation) {
+        let rendered = self.render(tiles, orientation);
 
         for y in 0..(self.width() * 8) {
             for x in 0..(self.width() * 8) {
@@ -252,7 +237,7 @@ impl Puzzle {
         }
     }
 
-    fn render(&self, tiles: &[Tile], rotation: usize, flipped: bool) -> Vec<bool> {
+    fn render(&self, tiles: &[Tile], orientation: Orientation) -> Vec<bool> {
         let unrotated: Vec<bool> = (0..(self.width() * self.height() * 64))
             .map(|index| {
                 let x = index % (self.width() * 8);
@@ -271,38 +256,33 @@ impl Puzzle {
                 let placed_tile = &self.0[placement];
                 let tile = &tiles[placed_tile.tile_index];
 
-                // Correct rotation
-                let flip_correction = !placed_tile.flipped;
-                let directed_rotation: i32 = if placed_tile.flipped { 2 } else { -2 };
-
-                let rotation_correction =
-                    if placed_tile.flipped && (placed_tile.rotation % 2 == 1) {
-                        placed_tile.rotation
-                    } else {
-                        (4 + directed_rotation + placed_tile.rotation as i32) as usize % 4
-                    };
-
-                tile.index(x_in_panel, y_in_panel, rotation_correction, flip_correction)
+                tile.index(x_in_panel, y_in_panel, placed_tile.orientation)
             }).collect();
 
         (0..(self.width() * self.height() * 64)).map(|index| {
             let (x, y) = (index % (self.width() * 8), index / (self.width() * 8));
-            let (ind_x, ind_y) = index_rotated_grid(x, y, self.width() * 8, self.width() * 8, rotation, flipped);
+            let (ind_x, ind_y) = index_rotated_grid(x, y, self.width() * 8, self.width() * 8, orientation);
             let transformed_index = ind_y * (self.width() * 8) + ind_x;
 
             unrotated[transformed_index]
         }).collect()
     }
 
-    fn find_sea_monsters(&self, tiles: &[Tile]) -> (usize, usize, bool) {
+    fn find_sea_monsters(&self, tiles: &[Tile]) -> (usize, Orientation) {
         let orientations = [
-            (false, 0), (false, 1), (false, 2), (false, 3),
-            (true, 0), (true, 1), (true, 2), (true, 3)
+            Orientation { rotation: Rotation::RightSideUp, flipped: false },
+            Orientation { rotation: Rotation::RotatedOnceClockwise, flipped: false },
+            Orientation { rotation: Rotation::UpsideDown, flipped: false },
+            Orientation { rotation: Rotation::RotatedOnceCounterClockwise, flipped: false },
+            Orientation { rotation: Rotation::RightSideUp, flipped: true },
+            Orientation { rotation: Rotation::RotatedOnceClockwise, flipped: true },
+            Orientation { rotation: Rotation::UpsideDown, flipped: true },
+            Orientation { rotation: Rotation::RotatedOnceCounterClockwise, flipped: true },
         ];
 
         let options = orientations.iter()
-            .map(|(flipped, rotation)| {
-                let count = self.iter_sea_monster_windows(tiles, *rotation, *flipped)
+            .map(|&orientation| {
+                let count = self.iter_sea_monster_windows(tiles, orientation)
                     .filter(|(_, _, window)| is_sea_monster(window))
                     .map(|(x, y, window)| {
                         println!("Monster at: {}, {}", x, y);
@@ -310,16 +290,16 @@ impl Puzzle {
                     })
                     .count();
 
-                (*flipped, *rotation, count)
+                (orientation, count)
             })
-            .collect::<Vec<(bool, usize, usize)>>();
+            .collect::<Vec<(Orientation, usize)>>();
 
         println!("{:?}", options);
 
         options
             .iter()
-            .find(|(_, _, count)| *count > 0)
-            .map(|(flipped, rotation, count)| (*count, *rotation, *flipped))
+            .find(|(_, count)| *count > 0)
+            .map(|&(orientation, count)| (count, orientation))
             .unwrap()
     }
 }
@@ -378,12 +358,6 @@ fn is_sea_monster(window: &Vec<bool>) -> bool {
         .all(|idx| window[idx])
 }
 
-fn derive_rotation(placed_side: usize, mate_side: usize, flipped: bool) -> usize {
-    let mate_side_end_position = (placed_side + 2) % 4;
-    let flipped_mate_side = if flipped && (mate_side == 1 || mate_side == 3) { (mate_side + 2) % 4 } else { mate_side };
-    ((4 + flipped_mate_side) - mate_side_end_position) % 4
-}
-
 fn main() {
     // Part One
     let tiles = parse_input("input.txt");
@@ -394,11 +368,7 @@ fn main() {
     println!("Part one: {}", corner_product);
 
     // Part two
-    puzzle.print(&tiles, 2, false);
-    puzzle.print_entirety(&tiles, 2, false);
-
-
     let total_hash_count = tiles.iter().map(|t| t.trues()).sum::<usize>();
-    let (sea_monsters, _, _) = puzzle.find_sea_monsters(&tiles);
+    let (sea_monsters, _) = puzzle.find_sea_monsters(&tiles);
     println!("Part two: {}, {}, {}", total_hash_count, sea_monsters, (total_hash_count - (15 * sea_monsters)));
 }

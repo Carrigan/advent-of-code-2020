@@ -19,53 +19,59 @@ fn test_part_two() {
     puzzle.solve(&tiles);
 
     // This should match the advent example
-    puzzle.print_entirety(&tiles, 2, true);
+    puzzle.print_entirety(&tiles, Orientation { rotation: Rotation::RightSideUp, flipped: false });
 
-
-    println!("\n---");
-    puzzle.print_entirety(&tiles, 3, false);
-    println!("\n---");
-    puzzle.print_entirety(&tiles, 2, false);
-
-    let (monster_count, _, _) = puzzle.find_sea_monsters(&tiles);
+    let (monster_count, _) = puzzle.find_sea_monsters(&tiles);
     let roughness = tiles.iter().map(|t| t.trues()).sum::<usize>();
     assert_eq!(roughness - (monster_count * 15), 273);
 }
 
 #[test]
-fn test_rotation() {
+fn test_side_translations() {
     let tile = Tile { width: 10, sides: [376, 156, 28, 80], label: 0, data: Vec::new() };
+    let orientation = Orientation { rotation: Rotation::RotatedOnceCounterClockwise, flipped: true };
 
-    assert_eq!(tile.side_with_translations(0, 1, true), 40);
-    assert_eq!(tile.side_with_translations(1, 1, true), 224);
-    assert_eq!(tile.side_with_translations(2, 1, true), 228);
-    assert_eq!(tile.side_with_translations(3, 1, true), 122);
+    assert_eq!(tile.side_with_translations(0, orientation), 40);
+    assert_eq!(tile.side_with_translations(1, orientation), 224);
+    assert_eq!(tile.side_with_translations(2, orientation), 228);
+    assert_eq!(tile.side_with_translations(3, orientation), 122);
+}
 
-    let tiles = parse_input("example2.txt");
+#[test]
+fn test_rotation() {
+    let tile = &parse_input("example2.txt")[0];
 
-    tiles[0].show(0, false);
-    assert!(tiles[0].index(7, 1, 0, false));
+    let orientation = Orientation { rotation: Rotation::RightSideUp, flipped: false };
+    tile.show(orientation);
+    assert!(tile.index(7, 1, orientation));
 
-    tiles[0].show(1, false);
-    assert!(tiles[0].index(1, 0, 1, false));
+    let orientation = Orientation { rotation: Rotation::RotatedOnceClockwise, flipped: false };
+    tile.show(orientation);
+    assert!(tile.index(6, 7, orientation));
 
-    tiles[0].show(2, false);
-    assert!(tiles[0].index(0, 6, 2, false));
+    let orientation = Orientation { rotation: Rotation::UpsideDown, flipped: false };
+    tile.show(orientation);
+    assert!(tile.index(0, 6, orientation));
 
-    tiles[0].show(3, false);
-    assert!(tiles[0].index(6, 7, 3, false));
+    let orientation = Orientation { rotation: Rotation::RotatedOnceCounterClockwise, flipped: false };
+    tile.show(orientation);
+    assert!(tile.index(1, 0, orientation));
 
-    tiles[0].show(0, true);
-    assert!(tiles[0].index(0, 1, 0, true));
+    let orientation = Orientation { rotation: Rotation::RightSideUp, flipped: true };
+    tile.show(orientation);
+    assert!(tile.index(0, 1, orientation));
 
-    tiles[0].show(1, true);
-    assert!(tiles[0].index(1, 7, 1, true));
+    let orientation = Orientation { rotation: Rotation::RotatedOnceClockwise, flipped: true };
+    tile.show(orientation);
+    assert!(tile.index(6, 0, orientation));
 
-    tiles[0].show(2, true);
-    assert!(tiles[0].index(7, 6, 2, true));
+    let orientation = Orientation { rotation: Rotation::UpsideDown, flipped: true };
+    tile.show(orientation);
+    assert!(tile.index(7, 6, orientation));
 
-    tiles[0].show(3, true);
-    assert!(tiles[0].index(6, 0, 3, true));
+    let orientation = Orientation { rotation: Rotation::RotatedOnceCounterClockwise, flipped: true };
+    tile.show(orientation);
+    assert!(tile.index(1, 7, orientation));
 }
 
 #[test]
