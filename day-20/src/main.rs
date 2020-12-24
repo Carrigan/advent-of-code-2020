@@ -33,11 +33,34 @@ impl PlacedTile {
         let x = self.x + side_offsets.0;
         let y = self.y + side_offsets.1;
 
-        // TODO!
-        let orientation = Orientation { rotation: Rotation::RightSideUp, flipped: false };
+        let orientation = match mating_side {
+            MatingSide::NormalTop => Orientation {
+                rotation: Rotation::from(2 + side_index as u32), flipped: false
+            },
+            MatingSide::NormalRight => Orientation {
+                rotation: Rotation::from(1 + side_index as u32), flipped: false
+            },
+            MatingSide::NormalBottom => Orientation {
+                rotation: Rotation::from(side_index as u32), flipped: false
+            },
+            MatingSide::NormalLeft => Orientation {
+                rotation: Rotation::from(3 + side_index as u32), flipped: false
+            },
+            MatingSide::FlippedTop => Orientation {
+                rotation: Rotation::from(2 + side_index as u32), flipped: true
+            },
+            MatingSide::FlippedRight => Orientation {
+                rotation: Rotation::from(1 + side_index as u32), flipped: true
+            },
+            MatingSide::FlippedBottom => Orientation {
+                rotation: Rotation::from(side_index as u32), flipped: true
+            },
+            MatingSide::FlippedLeft => Orientation {
+                rotation: Rotation::from(3 + side_index as u32), flipped: true
+            },
+        };
 
         PlacedTile { tile_index, x, y, orientation }
-
     }
 }
 
@@ -72,7 +95,7 @@ impl Puzzle {
         let mut all_placed = false;
         let mut last_placed = 0;
 
-        self.place(tiles, 8);
+        self.place(tiles, 0);
 
         while !all_placed {
             println!("\n\nPlacement iteration...");
@@ -154,7 +177,7 @@ impl Puzzle {
         }
 
         println!("\nAttempting placement of piece {} ({})", index, tiles[index].label);
-        println!("- {:?}", tiles[index].sides);
+        println!("- {:?} !{:?}", tiles[index].sides, tiles[index].inverse_sides());
 
         // Place the first piece at the origin with no orientation
         if self.0.is_empty() {
@@ -364,6 +387,8 @@ fn main() {
     let mut puzzle = Puzzle::new();
 
     puzzle.solve(&tiles);
+
+    puzzle.print(&tiles, Orientation::neutral());
     let corner_product: u64 = puzzle.corner_labels(&tiles).iter().product();
     println!("Part one: {}", corner_product);
 

@@ -4,6 +4,21 @@ pub struct Orientation {
     pub flipped: bool
 }
 
+impl Orientation {
+    pub fn neutral() -> Orientation {
+        Orientation { rotation: Rotation::RightSideUp, flipped: false }
+    }
+
+    pub fn index_zero_side(&self) -> u32 {
+        let conv = self.rotation as u32;
+
+        match self.flipped {
+            false => if conv % 2 == 1 { (conv + 2) % 4 } else { conv },
+            true => conv
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy)]
 pub enum Rotation {
     RightSideUp = 0,
@@ -26,6 +41,8 @@ pub enum MatingSide {
 
 impl From<u32> for Rotation {
     fn from(value: u32) -> Self {
+        let value = value % 4;
+
         match value {
             0 => Rotation::RightSideUp,
             1 => Rotation::RotatedOnceClockwise,

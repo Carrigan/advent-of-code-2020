@@ -50,13 +50,23 @@ impl From<&str> for Tile {
 }
 
 impl Tile {
+    pub fn inverse_sides(&self) -> [u32; 4] {
+        [
+            invert_side(10, self.sides[0]),
+            invert_side(10, self.sides[1]),
+            invert_side(10, self.sides[2]),
+            invert_side(10, self.sides[3]),
+        ]
+    }
+
     pub fn side_with_translations(&self, index: u32, orientation: Orientation) -> u32 {
+        let zero_indexed_side = 4 + orientation.index_zero_side();
         let indexed_rotation = match orientation.flipped {
-            true => orientation.rotation.rotate_ccw(index) as usize,
-            false => orientation.rotation.rotate_cw(index) as usize
+            true => (zero_indexed_side - index) % 4,
+            false => (zero_indexed_side + index) % 4
         };
 
-        let raw_value = self.sides[indexed_rotation];
+        let raw_value = self.sides[indexed_rotation as usize];
 
         if orientation.flipped { invert_side(10, raw_value) } else { raw_value }
     }
@@ -91,7 +101,7 @@ impl Tile {
                     if side == edge {
                         return Some(MatingSide::FlippedRight)
                     } else if inverted == edge {
-                        return Some(MatingSide::FlippedLeft)
+                        return Some(MatingSide::NormalLeft)
                     }
                 }
                 _ => panic!()

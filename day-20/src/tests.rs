@@ -19,7 +19,7 @@ fn test_part_two() {
     puzzle.solve(&tiles);
 
     // This should match the advent example
-    puzzle.print_entirety(&tiles, Orientation { rotation: Rotation::RightSideUp, flipped: false });
+    puzzle.print_entirety(&tiles, Orientation { rotation: Rotation::UpsideDown, flipped: true });
 
     let (monster_count, _) = puzzle.find_sea_monsters(&tiles);
     let roughness = tiles.iter().map(|t| t.trues()).sum::<usize>();
